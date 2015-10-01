@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<changelog>
+<changegroup operation="M" tableName="C_Tax" uid="CORE-C_Tax-1010087">
+<column name="citirg3685" type="17">
+<oldValue>null</oldValue>
+<newValue>EXE</newValue>
+</column>
+</changegroup>
+<changegroup operation="M" tableName="C_Tax" uid="CORE-C_Tax-1010085">
+<column name="citirg3685" type="17">
+<oldValue>null</oldValue>
+<newValue>CDF</newValue>
+</column>
+</changegroup>
+<changegroup operation="M" tableName="C_Tax" uid="CORE-C_Tax-1010086">
+<column name="citirg3685" type="17">
+<oldValue>null</oldValue>
+<newValue>CDF</newValue>
+</column>
+</changegroup>
+</changelog>
