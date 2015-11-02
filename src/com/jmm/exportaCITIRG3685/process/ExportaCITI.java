@@ -42,7 +42,8 @@ public class ExportaCITI extends SvrProcess {
 			, montoImpNacionales, montoImpMunicipales, montoImpOtros
 			, montoOperacionesExentas; 
 	
-	private static final String QUERY = "select \n" + 
+	private static final String QUERY = 			
+			"select \n" + 
 			"	inv.c_invoice_id\n" + 
 			"	, inv.dateacct::date\n" + 
 			"	, inv.dateinvoiced::date\n" + 
@@ -52,26 +53,27 @@ public class ExportaCITI extends SvrProcess {
 			"	, COALESCE(bp.taxidtype, '99') \n" + 
 			"	, COALESCE(bp.taxid, inv.nroidentificcliente)\n" + 
 			"	, bp.name\n" + 
-			"	, itax.taxbaseamt\n" + 
-			"	, itax.taxamt\n" + 
+			"	, sum(itax.taxbaseamt)\n" + 
+			"	, sum(itax.taxamt)\n" + 
 			"	, cur.wsfecode\n" + 
 			"	, tax.citirg3685\n" + 
-
-			"	ltr.letra, tax.WSFEcode \n" + 
-			"from libertya.c_invoicetax itax \n" + 
-			"join libertya.c_invoice inv on itax.c_invoice_id = inv.c_invoice_id \n" + 
-			"join libertya.c_doctype dt on inv.c_doctype_id = dt.c_doctype_id \n" + 
-			"join libertya.c_bpartner bp on inv.c_bpartner_id = bp.c_bpartner_id \n" + 
-			"join libertya.c_currency cur on inv.c_currency_id = cur.c_currency_id \n" + 
-			"join libertya.c_tax tax on itax.c_tax_id = tax.c_tax_id \n" + 
-			"join libertya.c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
+			"	, ltr.letra \n" +
+			"	, tax.WSFEcode \n" + 
+			"from c_invoicetax itax \n" + 
+			"join c_invoice inv on itax.c_invoice_id = inv.c_invoice_id \n" + 
+			"join c_doctype dt on inv.c_doctype_id = dt.c_doctype_id \n" + 
+			"join c_bpartner bp on inv.c_bpartner_id = bp.c_bpartner_id \n" + 
+			"join c_currency cur on inv.c_currency_id = cur.c_currency_id \n" + 
+			"join c_tax tax on itax.c_tax_id = tax.c_tax_id \n" + 
+			"join c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
 			"where \n" + 
 			"	inv.dateacct between ? and ? and \n" + 
 			"	inv.c_doctype_id not in (1010517, 1010518, 1010519, 1010520) \n" + 
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
+			"group by 1,2,3,4,5,6,7,8,9,12,12,14,15 \n" +
 			"order by \n" + 
-			"	inv.dateinvoiced asc, bp.name, inv.documentno, tax.citirg3685\n"
+			"	inv.dateinvoiced asc, inv.c_invoice_id, bp.name, inv.documentno, tax.citirg3685\n"
 			;
 
 	private static final int IX_INVOICE_ID 				= 1;
@@ -186,18 +188,19 @@ public class ExportaCITI extends SvrProcess {
 		StringBuffer la; 				// linea de alícuotas
 		StringBuffer lc; 				// línea de comprobantes
 		
-		String cmpFecha = new String();
-		String cmpTipo = new String();
-		String cmpPuntoVenta = new String();
-		String cmpNumero = new String();
-		String cmpLetra = new String();
-		String cmpTotal = new String();
+		String cmpFecha;
+		String cmpTipo ;
+		String cmpPuntoVenta;
+		String cmpNumero;
+		String cmpLetra;
+		String cmpTotal ;
 		
-		String bpCodigoIdentificadorFiscal = new String();
-		String bpIdentificadorFiscal = new String();
-
-		String monedaCodigoWSFE = new String();
-		String bpNombre = new String();
+		String bpCodigoIdentificadorFiscal;
+		String bpIdentificadorFiscal;
+		String bpNombre;
+		
+		String monedaCodigoWSFE;
+		String citiReference = "";
 
 		
 		while(rs.next())
@@ -216,9 +219,12 @@ public class ExportaCITI extends SvrProcess {
 			cmpTotal = pad(formatAmount(rs.getDouble(IX_INVOICE_GRANDTOTAL)), 15, true);
 			monedaCodigoWSFE = rs.getString(IX_CURRENCY_WSFECODE);
 			bpNombre = pad(rs.getString(IX_BP_NAME).toUpperCase(), 30, false);
-			cmpLetra = rs.getString(IX_LETRA).toUpperCase();			
+			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
+			
+			citiReference = rs.getString(IX_TAX_CITI_REF).toUpperCase();
 
-			if (cmpLetra.equals("A") || cmpLetra.equals("B") ||cmpLetra.equals("M") || esOtros(cmpTipo)){ 
+			if (cmpLetra.equals("A") || cmpLetra.equals("B") ||cmpLetra.equals("M") || esOtros(cmpTipo)){
+				boolean write = false;
 				la = new StringBuffer();
 				la.append(cmpTipo);
  				if (esOtros(cmpTipo))
@@ -231,25 +237,26 @@ public class ExportaCITI extends SvrProcess {
  					la.append(bpIdentificadorFiscal);
  				}
 
-				if (esCreditoDebitoFiscal(rs.getString(IX_TAX_CITI_REF))){
+				if (esCreditoDebitoFiscal(citiReference)){
 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));		// NG
 	 				la.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));					// Alícuota de IVA
 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
+	 				write = true;
+				}else if (montoConsumidorFinal == 0.0 && 
+						citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos)){
+					
+					// 	Montos no gravados en Fac A o M					
+					la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));	// Monto no gravado
+					la.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));				// Alícuota de IVA
+	 				la.append(pad("0", 15, true));
+	 				write = true;
+				}
+				if(write){
 	 				q_alic++;
 	 				la.append(lineSeparator);
-	 				fw_a.write(la.toString());
-				}else{															// Montos no gravados en Fac A o M 
-					if (montoConsumidorFinal == 0.0 && rs.getString(IX_TAX_CITI_REF).equalsIgnoreCase(LP_C_Tax.CITIRG3685_ImportesExentos)){
-						la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));	// Monto no gravado
-						la.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));				// Alícuota de IVA
-		 				la.append(pad("0", 15, true));
-		 				q_alic++;
-		 				la.append(lineSeparator);
-		 				fw_a.write(la.toString());
-					}
+	 				fw_a.write(la.toString());					
 				}
-				la = null;
-				//fw_a.write("\r");
+				la = null;				
 			}
 			
 			/*
