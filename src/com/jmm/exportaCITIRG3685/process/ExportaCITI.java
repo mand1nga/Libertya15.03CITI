@@ -29,32 +29,68 @@ import org.openXpertya.process.SvrProcess;
 import org.openXpertya.util.DB;
 import org.openXpertya.util.Env;
 
+import com.jmm.exportaCITIRG3685.model.LP_C_Tax;
+
 public class ExportaCITI extends SvrProcess {
-
-	/*
-	 * Constructor de la clase
-	 */
-	
-	public ExportaCITI() {
-		super();
-
-		cf = new Double(0);
-		p_iva = new Double(0);
-		p_iibb = new Double(0);
-		p_nac = new Double(0);
-		p_mun = new Double(0);
-		ot = new Double(0);
-		ex = new Double(0);
-	}
   
     private MPeriod periodo;
     private String transaction;
-    private String directorio="";
+    private String directorio = "";
     private ResultSet rs = null;
 	private Double cf, p_iva, p_iibb, p_nac, p_mun, ot, ex; 
 	private int invoice_id;
 	
+	private static final String QUERY = "select \n" + 
+			"	inv.c_invoice_id\n" + 
+			"	, inv.dateacct::date\n" + 
+			"	, inv.dateinvoiced::date\n" + 
+			"	, inv.afipdoctype\n" + 
+			"	, inv.documentno\n" + 
+			"	, inv.grandtotal\n" +
+			"	, COALESCE(bp.taxidtype, '99') \n" + 
+			"	, COALESCE(bp.taxid, inv.nroidentificcliente)\n" + 
+			"	, bp.name\n" + 
+			"	, itax.taxbaseamt\n" + 
+			"	, itax.taxamt\n" + 
+			"	, cur.wsfecode\n" + 
+			"	, tax.citirg3685\n" + 
+			"	, to_char(tax.rate, '90.00'), \n" + 
+			"	ltr.letra, tax.WSFEcode \n" + 
+			"from libertya.c_invoicetax itax \n" + 
+			"join libertya.c_invoice inv on itax.c_invoice_id = inv.c_invoice_id \n" + 
+			"join libertya.c_doctype dt on inv.c_doctype_id = dt.c_doctype_id \n" + 
+			"join libertya.c_bpartner bp on inv.c_bpartner_id = bp.c_bpartner_id \n" + 
+			"join libertya.c_currency cur on inv.c_currency_id = cur.c_currency_id \n" + 
+			"join libertya.c_tax tax on itax.c_tax_id = tax.c_tax_id \n" + 
+			"join libertya.c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
+			"where \n" + 
+			"	inv.dateacct between ? and ? and \n" + 
+			"	inv.c_doctype_id not in (1010517, 1010518, 1010519, 1010520) \n" + 
+			"	and inv.docstatus = 'CO' \n" + 
+			"	and inv.issotrx = ? \n" + 
+			"order by \n" + 
+			"	inv.dateinvoiced asc, bp.name, inv.documentno, tax.citirg3685\n"
+			;
+
+	private static final int IX_INVOICE_ID 				= 1;
+	private static final int IX_INVOICE_DATE_ACCT 		= 2;
+	private static final int IX_INVOICE_DATE_INVOICED 	= 3;
+	private static final int IX_INVOICE_AFIP_DOCTYPE 	= 4;
+	private static final int IX_INVOICE_DOCUMENT_NO 	= 5;
+	private static final int IX_INVOICE_GRANDTOTAL 		= 6;
+	private static final int IX_BP_TAX_ID_TYPE 			= 7;
+	private static final int IX_BP_TAX_ID 				= 8;
+	private static final int IX_BP_NAME 				= 9;
+	private static final int IX_INVOICE_TAX_AMT_BASE 	= 10;
+	private static final int IX_INVOICE_TAX_AMT 		= 11;
+	private static final int IX_CURRENCY_WSFECODE 		= 12;
+	private static final int IX_TAX_CITI_REF 			= 13;
+	private static final int IX_TAX_RATE 				= 14;
+	private static final int IX_TAX_WSFE_CODE 			= 15;
+	private static final int IX_LETRA 					= 16;
+	
 	protected void prepare() {
+		borraImpuestos();
 		
 		ProcessInfoParameter[] para = getParameter();
 		for(int i = 0;i < para.length;i++) {
@@ -90,7 +126,6 @@ public class ExportaCITI extends SvrProcess {
 							  periodo.getName().toUpperCase() + ".txt";
 		String result ="";
 		String lineSeparator = System.getProperty("line.separator");
-        String sql = null;
         FileWriter cbtes = null, alic = null;
         PreparedStatement pstmt = null;
  		
@@ -98,12 +133,11 @@ public class ExportaCITI extends SvrProcess {
  		{
  			long inicia = System.currentTimeMillis();
  			
- 			sql = getSql();
  			/*
  			 * Necesito poder navegar hacia adelante y atrás en el resulset, por eso creo de esta manera
  			 * el preparestatement.
  			 */
- 			pstmt = DB.getConnectionRW().prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+ 			pstmt = DB.getConnectionRW().prepareStatement(QUERY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
  			/*pstmt.setTimestamp(1, date_from);
  			pstmt.setTimestamp(2, date_to);*/
  			pstmt.setTimestamp(1, periodo.getStartDate());
@@ -159,24 +193,6 @@ public class ExportaCITI extends SvrProcess {
 		String moneda = new String();
 		String rz = new String();
 		String letra = new String();
-		/*
-		 1 inv.c_invoice_id
-		 2 inv.dateacct::date
-		 3 inv.dateinvoiced::date
-		 4 inv.afipdoctype    - Tipo de comprobante
-		 5 inv.documentno
-		 6 bp.taxidtype       - Tipo documento, solo para proveedores
-		 7 bp.taxid           - Nro de documento, solo para proveedores
-		 8 bp.name            - Razón social, solo para proveedores
-		 9 inv.grandtotal
-		 10 itax.taxbaseamt
-		 11 itax.taxamt
-		 12 cur.wsfecode
-		 13 tax.c_cat_citi_id
-		 14 tax.rate
-		 15 ltr.letra
-		 16 tax.wsfecode
-		 */
 		
 		while(rs.next())
 		{
@@ -184,17 +200,17 @@ public class ExportaCITI extends SvrProcess {
 			 * Primero genero las líneas de las alícuotas y voy calculando las sumas totalizadoras del
 			 * informe por comprobante, que va en un archivo separado.
 			*/
-			//log.log(Level.SEVERE,"Invoice_id" + rs.getInt(1)); 
-			fecha = getDate(rs.getDate(3));
-			tipo_comp = pad(rs.getString(4), 3, true);
-			pv = pad(rs.getString(5).substring(1, 5), 5, true);
-			nro = pad(rs.getString(5).substring(6, 13), 20, true);
-			cod_doc = rs.getString(6);
-			nro_doc = pad(rs.getString(7).replace("-", ""), 20, true);
-			total = pad(getCnvAmt(rs.getDouble(9)), 15, true);
-			moneda = rs.getString(12);
-			rz = pad(rs.getString(8).toUpperCase(), 30, false);
-			letra = rs.getString(15);			
+
+			fecha = formatDate(rs.getDate(IX_INVOICE_DATE_INVOICED));
+			tipo_comp = pad(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, true);
+			pv = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, true);
+			nro = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6, 13), 20, true);
+			cod_doc = rs.getString(IX_BP_TAX_ID_TYPE); // TODO: Revisar
+			nro_doc = pad(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, true);
+			total = pad(formatAmount(rs.getDouble(IX_INVOICE_GRANDTOTAL)), 15, true);
+			moneda = rs.getString(IX_CURRENCY_WSFECODE);
+			rz = pad(rs.getString(IX_BP_NAME).toUpperCase(), 30, false);
+			letra = rs.getString(IX_LETRA);			
 
 			if (letra.equalsIgnoreCase("A") || letra.equalsIgnoreCase("B") ||letra.equalsIgnoreCase("M") || esOtros(tipo_comp)){ 
 				s = new StringBuffer();
@@ -209,17 +225,17 @@ public class ExportaCITI extends SvrProcess {
  					s.append(nro_doc);
  				}
 
-				if (esCreditoDebitoFiscal(rs.getString(13))){
-	 				s.append(pad(getCnvAmt(rs.getDouble(10)), 15, true));		// NG
-	 				s.append(pad(rs.getString(16), 4, true));					// Alícuota de IVA
-	 				s.append(pad(getCnvAmt(rs.getDouble(11)), 15, true));		// IVA liquidado
+				if (esCreditoDebitoFiscal(rs.getString(IX_TAX_CITI_REF))){
+	 				s.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));		// NG
+	 				s.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));					// Alícuota de IVA
+	 				s.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
 	 				q_alic++;
 	 				s.append(lineSeparator);
 	 				fw_a.write(s.toString());
 				}else{															// Montos no gravados en Fac A o M 
-					if (cf == 0.0 && rs.getString(13).equalsIgnoreCase("EXE")){
-						s.append(pad(getCnvAmt(rs.getDouble(10)), 15, true));	// Monto no gravado
-						s.append(pad(rs.getString(16), 4, true));				// Alícuota de IVA
+					if (cf == 0.0 && rs.getString(IX_TAX_CITI_REF).equalsIgnoreCase("EXE")){
+						s.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));	// Monto no gravado
+						s.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));				// Alícuota de IVA
 		 				s.append(pad("0", 15, true));
 		 				q_alic++;
 		 				s.append(lineSeparator);
@@ -235,7 +251,7 @@ public class ExportaCITI extends SvrProcess {
 			 * la próxima línea es de otro comprobante por lo que debo generar la línea del comprobante. Lo mismo
 			 * ocurre si es la última línea del rs.
 			 */
-			if (acumulaImportes(rs.getInt(1)) || rs.isLast()){
+			if (acumulaImportes(rs.getInt(IX_INVOICE_ID)) || rs.isLast()){
 				c = new StringBuffer();
 				c.append(fecha);
 				c.append(tipo_comp);
@@ -259,11 +275,11 @@ public class ExportaCITI extends SvrProcess {
 						((letra.equalsIgnoreCase("A") || esOtros(tipo_comp)) && cf == 0.0))
 					c.append("000000000000000");
 				else
-					c.append(pad(getCnvAmt(ex), 15, true));
-				c.append(pad(getCnvAmt(p_iva), 15, true));
-				c.append(pad(getCnvAmt(p_nac), 15, true));
-				c.append(pad(getCnvAmt(p_iibb), 15, true));
-				c.append(pad(getCnvAmt(p_mun), 15, true));
+					c.append(pad(formatAmount(ex), 15, true));
+				c.append(pad(formatAmount(p_iva), 15, true));
+				c.append(pad(formatAmount(p_nac), 15, true));
+				c.append(pad(formatAmount(p_iibb), 15, true));
+				c.append(pad(formatAmount(p_mun), 15, true));
 				// TODO: dar soporte a impuestos internos
 				c.append("000000000000000");
 				// TODO: dar soporte multimoneda
@@ -275,8 +291,8 @@ public class ExportaCITI extends SvrProcess {
 				else
 					c.append("0");
 				if (transaction.equalsIgnoreCase("V"))
-					c.append(pad(getCnvAmt(cf), 15, true));
-				c.append(pad(getCnvAmt(ot), 15, true));
+					c.append(pad(formatAmount(cf), 15, true));
+				c.append(pad(formatAmount(ot), 15, true));
 				if (transaction.equalsIgnoreCase("V"))
 					// TODO: dar soporte para comisiones de corredores
 					c.append("00000000000                              000000000000000");
@@ -293,7 +309,7 @@ public class ExportaCITI extends SvrProcess {
 			 * Guardo el  invoice_id del comprobante por que si en la próxima línea del rs 
 			 * el invoice_id tiene el mismo valor entonces tengo que acumular los montos de impuestos.
 			 */
-			invoice_id = rs.getInt(1);
+			invoice_id = rs.getInt(IX_INVOICE_ID);
 			cant++;
 		}
 	
@@ -304,7 +320,7 @@ public class ExportaCITI extends SvrProcess {
 	/*
 	 * Retorna la fecha en formato anio mes dia
 	 */
-    private String getDate(Date fecha) {
+    private String formatDate(Date fecha) {
         
     	DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
         return dateFormat.format(fecha);
@@ -313,7 +329,7 @@ public class ExportaCITI extends SvrProcess {
     /*
      * Retorna el monto como un string sin el punto decimal 
      */
-    private String getCnvAmt(Double amt) {
+    private String formatAmount(Double amt) {
     	
     	DecimalFormat df = new DecimalFormat("#.00");
     	return df.format(amt).replace(".", "").replace(",", "");
@@ -366,8 +382,8 @@ public class ExportaCITI extends SvrProcess {
      * Devuelve verdadero si el id del impuesto consultado corresponde a uno configurado 
      * como crédito o débto fiscal
      */
-    private Boolean esCreditoDebitoFiscal(String id){
-    	return id.trim().equalsIgnoreCase("CDF");
+    private Boolean esCreditoDebitoFiscal(String reference){
+    	return reference.trim().equalsIgnoreCase(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA);
     }
     
     /*
@@ -391,59 +407,33 @@ public class ExportaCITI extends SvrProcess {
 		 * Chequeo si el invoice_id de ésta línea es el mismo que el que está guardado y reseteo los montos
 		 * de impuestos de ser necesario
 		 */
-		if (invoice_id != rs.getInt(1))
+		if (invoice_id != rs.getInt(IX_INVOICE_ID))
 			borraImpuestos();
 
 		if (rs.isLast()) // Si estoy en la última línea, devuelvo true para que se guarde el comprobante.
     		ret = true;
 		else{
 	    	rs.next();
-	    	ret = !(rs.getInt(1) == id);
+	    	ret = !(rs.getInt(IX_TAX_CITI_REF) == id);
 	    	rs.previous();
 		}
 		
-		String v = rs.getString(13).trim();
-		if (v.equalsIgnoreCase("CDF"))
-			cf +=rs.getDouble(11);
-		else if (v.equalsIgnoreCase("PIV"))
-			p_iva += rs.getDouble(11);
-		else if (v.equalsIgnoreCase("PIB"))
-			p_iibb += rs.getDouble(11);
-		else if (v.equalsIgnoreCase("PNC"))
-			p_nac += rs.getDouble(11);
-		else if (v.equalsIgnoreCase("PMN"))
-			p_mun += rs.getDouble(11);
-		else if (v.equalsIgnoreCase("OTR"))
-			ot += rs.getDouble(11);
-		else if (v.equalsIgnoreCase("EXE"))
-			ex += rs.getDouble(10);
+		String reference = rs.getString(IX_TAX_CITI_REF).trim().toUpperCase();
+		if (reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA))
+			cf +=rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.PERCEPTIONTYPE_IVA))
+			p_iva += rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIngresosBrutos))
+			p_iibb += rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosNacionales))
+			p_nac += rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosMunicipales))
+			p_mun += rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.CITIRG3685_OtrosImpuestos))
+			ot += rs.getDouble(IX_INVOICE_TAX_AMT);
+		else if (reference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
+			ex += rs.getDouble(IX_INVOICE_TAX_AMT_BASE);
 		
 		return ret;
     }
-    
-    /*
-     * Devuelve el query para recuperar las líneas de impuestos de todas las facturas
-     * en el período especificado.
-     */
-	private String getSql()
-	{
-		StringBuffer sql = new StringBuffer();
-		sql.append("select inv.c_invoice_id, inv.dateacct::date, inv.dateinvoiced::date, inv.afipdoctype, inv.documentno, COALESCE(bp.taxidtype, '99'), ");
-		sql.append("COALESCE(bp.taxid, inv.nroidentificcliente), bp.name, inv.grandtotal, itax.taxbaseamt, itax.taxamt, cur.wsfecode, tax.citirg3685, to_char(tax.rate, '90.00'), ");
-		sql.append("ltr.letra, tax.WSFEcode ");
-		sql.append("from libertya.c_invoicetax itax ");
-		sql.append("join libertya.c_invoice inv on itax.c_invoice_id = inv.c_invoice_id ");
-		sql.append("join libertya.c_doctype dt on inv.c_doctype_id = dt.c_doctype_id ");
-		sql.append("join libertya.c_bpartner bp on inv.c_bpartner_id = bp.c_bpartner_id ");
-		sql.append("join libertya.c_currency cur on inv.c_currency_id = cur.c_currency_id ");
-		sql.append("join libertya.c_tax tax on itax.c_tax_id = tax.c_tax_id ");
-		sql.append("join libertya.c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id ");
-		sql.append("where inv.dateacct between ? and ? and ");
-		sql.append("inv.c_doctype_id not in (1010517, 1010518, 1010519, 1010520) ");
-		sql.append("and inv.docstatus = 'CO' ");
-		sql.append("and inv.issotrx = ? ");
-		sql.append("order by ");
-		sql.append("inv.dateinvoiced asc, bp.name, inv.documentno, tax.citirg3685");
-		return sql.toString();
-	}
 }
