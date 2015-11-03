@@ -29,7 +29,6 @@ import org.openXpertya.process.SvrProcess;
 import org.openXpertya.util.DB;
 import org.openXpertya.util.Env;
 
-import com.jmm.exportaCITIRG3685.model.LP_C_Invoice;
 import com.jmm.exportaCITIRG3685.model.LP_C_Tax;
 
 public class ExportaCITI extends SvrProcess {
@@ -46,12 +45,15 @@ public class ExportaCITI extends SvrProcess {
 	private static final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");	
 	private static final DecimalFormat decimalFormat = new DecimalFormat("#.00");
 	
+	private static final String AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito = "90";
+	public static final String AFIPDOCTYPE_OtrosComprobantes = "99";	
+	
 	private static final String QUERY = 			
 			"select \n" + 
 			"	inv.c_invoice_id\n" + 
 			"	, inv.dateacct::date\n" + 
 			"	, inv.dateinvoiced::date\n" + 
-			"	, inv.afipdoctype\n" + 
+			"	, dt.docsubtypecae \n" + 
 			"	, inv.documentno\n" + 
 			"	, inv.grandtotal\n" +
 			"	, COALESCE(bp.taxidtype, '99') \n" + 
@@ -72,7 +74,8 @@ public class ExportaCITI extends SvrProcess {
 			"join c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
 			"where \n" + 
 			"	inv.dateacct between ? and ? and \n" + 
-			"	inv.c_doctype_id not in (1010517, 1010518, 1010519, 1010520) \n" + 
+			"	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y') \n"+
+			"	and dt.docsubtypecae is not null \n"+
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
 			"group by 1,2,3,4,5,6,7,8,9,12,12,14,15 \n" +
@@ -83,7 +86,7 @@ public class ExportaCITI extends SvrProcess {
 	private static final int IX_INVOICE_ID 				= 1;
 	private static final int IX_INVOICE_DATE_ACCT 		= 2;
 	private static final int IX_INVOICE_DATE_INVOICED 	= 3;
-	private static final int IX_INVOICE_AFIP_DOCTYPE 	= 4;
+	private static final int IX_INVOICE_DOCSUBTYPECAE 	= 4;
 	private static final int IX_INVOICE_DOCUMENT_NO 	= 5;
 	private static final int IX_INVOICE_GRANDTOTAL 		= 6;
 	private static final int IX_BP_TAX_ID_TYPE 			= 7;
@@ -145,8 +148,6 @@ public class ExportaCITI extends SvrProcess {
  			 * el preparestatement.
  			 */
  			pstmt = DB.getConnectionRW().prepareStatement(QUERY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
- 			/*pstmt.setTimestamp(1, date_from);
- 			pstmt.setTimestamp(2, date_to);*/
  			pstmt.setTimestamp(1, paramPeriodo.getStartDate());
  			pstmt.setTimestamp(2, paramPeriodo.getEndDate());
  			pstmt.setString(3, (paramTipoTransaccion.equalsIgnoreCase("V")?"N":"Y"));
@@ -215,7 +216,7 @@ public class ExportaCITI extends SvrProcess {
 			*/
 
 			cmpFecha = formatDate(rs.getDate(IX_INVOICE_DATE_INVOICED));
-			cmpTipo = pad(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, true);
+			cmpTipo = pad(rs.getString(IX_INVOICE_DOCSUBTYPECAE), 3, true);
 			cmpPuntoVenta = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, true);
 			cmpNumero = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6, 13), 20, true);
 			bpCodigoIdentificadorFiscal = rs.getString(IX_BP_TAX_ID_TYPE);
@@ -403,8 +404,8 @@ public class ExportaCITI extends SvrProcess {
      * Devuelve verdadero si el tipo de comprobante es "Otros comprobantes" u "Otros comprobantes - credito".
      */
     private Boolean esOtros(String tipo){
-    	return tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito) 
-    			|| tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes);
+    	return tipo.equals(AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito) 
+    			|| tipo.equals(AFIPDOCTYPE_OtrosComprobantes);
     }
     
     /*
