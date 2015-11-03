@@ -1,42 +1,121 @@
-Plugin de Libertya 15.03 para generar archivos TXT según RG 3685 de AFIP (Régimen de información compras y ventas).
+## Introducción
 
-La versión base de Libertya en la que se hizo el desarrollo es 15.03. Está implementado como un plugin que extiende las clases c_invoice y c_tax. Agrega, además, una columna a cada tabla.
+Plugin de Libertya ERP 15.03 para generar archivos TXT según RG 3685 de AFIP (Régimen de información compras y ventas).
 
-Se deben clasificar los impuestos configurados en el sistema en alguna de las categorías en las que AFIP exige agrupar los montos involucrados en cada comprobante. 
-Esto se hace una sola vez al instalar el plugin, y a tal fin se creó una lista de validación con los tipos de impuestos requeridos.
-La configuración se hace desde la venta de "Categoría de impuestos".
-También es necesario corroborar que el código de las alícuotas configuradas en el sistema se corresponda con la lista establecida por AFIP. Para esto se habilitó la columna WSFEcode de C_tax,
-cuyo campo aparece debajo del combo agregado por el plugin (de clasificación de impuestos).
+## Instalación
+
+### Instalar Plugin
+
+1. Copiar el archivo *jar* hacia `$OXP_HOME/lib/plugins/`
+2. Ingresar a Libertya ERP con usuario System e instalar el plugin utilizando el *Instalador de Componentes*
+3. Si se está utilizando la interfaz web, reiniciar el servicio de JBOSS
+
+### Configurar Tipos de Comprobantes
+
+#### Tipos de Comprobantes AFIP
+
+Antes que todo, asegurarse que la referencia `DocSubTypeCae` tiene declarados todos los códigos de comprobantes con los que se desea trabajar. Para más información ver el [listado](http://www.afip.gov.ar/efactura/documentos/TABLA%20TIPO%20COMPROBANTES%20V.0%20%2025082010.xls) de la AFIP. IMPORTANTE: Los códigos de comprobantes deben ser cargados con dos dígitos máximo (e.g.: 001 -> 01)
+
+#### Tipos de Comprobantes Libertya ERP
+
+Si se quiere asociar de forma predeterminada un TdC de Libertya ERP con un TdC de la AFIP, esto podrá hacerse desde la ventana `Tipos de Documento` dentro del perfil `Configuración de la Compañía`. Allí, el TdC de la AFIP figura por default como `Tipo de Documento Electrónico`. Tener en cuenta que este campo puede o no estar visible, de acuerdo a la configuración propia de cada TdC.
+
+
+### Configurar Impuestos
+
+Ingresar a la ventana `Categoría de Impuestos`, luego configurar en la pestaña `Impuesto` allí asignar el código de impuesto correspondiente a esta RG.
+
+A modo de ayuda, se puede ejecutar el siguiente script en la base de datos
+
+```
+update c_tax set citirg3685 = 
+	case 
+		when rate = 0 then 'EXE' 
+		else 'CDF' 
+	end
+where 
+	citirg3685 is null 
+	and isactive = 'Y'
+	and rate in (0, 21, 10.5)
+;
+```
+
+## Utilización
 
 Para la determinación del tipo de comprobante se debe especificar, al momento de cargar el documento, qué tipo de comprobante se trata según el listado que establece AFIP. El campo para
 hacerlo está debajo de "Tipo de documento". Esto se debe hacer solamente para comprobantes de compras; en los de ventas se determinan según lo configurado en la ventana "Tipo de documento",
 perfil "Configuración de la compañía".
-El combo está configurado para poder modificarse aún después de completada la factura.
 
-Los comprobantes anteriores a la fecha de instalación del plugin no se actualizan.
+Este campo está configurado para poder modificarse aún después de completada la factura.
+
+## Detalles
+
+La versión base de Libertya ERP en la que se hizo el desarrollo es 15.03. Está implementado como un plugin que extiende las clases c_invoice y c_tax. Agrega, además, una columna a cada tabla.
+
+Los comprobantes anteriores a la fecha de instalación del plugin no se actualizan (ver *Anexos*).
 
 Los archivos install.xml, postinstall.xml y preinstal.sql contienen las modificaciones a las tablas y diccionario de datos necesarios, tal como los genera el exportador de de plugins 
-de Libertya.
+de Libertya ERP.
 
-Para tener acceso al proceso, se debe crear una entrada en "Informe y proceso", perfil "System".
-Los parámetros requeridos son (respetar mayúsculas):
+## Créditos
 
-1) Período:
-* Nombre de columna en BD: Periodo 
-* Tipo de dato: Busqueda
-* Valor de referencia: C_Period (all)
-
-2) Tipo de transacción:
-* Nombre de columna en BD: TipoTrans
-* Tipo de dato: Lista
-* Valor de referencia: Tipo de Transacción
-
-3) Directorio de salida:
-* Nombre de columna en BD: Directorio
-* Tipo de dato: Cadena
-
-Luego, crear la entrada en el menú (perfil System), agregarla al árbol deseado y darle permiso al perfil necesario para acceder al proceso (perfil Configuración de la compañía).
-
+### Juan Manuel Martínez
 Comentarios, sugerencias, dudas y demás por correo a jmmartinezsf@gmail.com
 
-Juan Manuel Martínez - 2015 
+### Saulo José Gil 
+
+Contacto vía [website de Orbital Software Argentina](http://www.orbital.com.ar)
+
+## Anexos
+
+### Utilización retroactiva
+
+A la hora de exportar los archivos CITI el plugin utiliza un campo que no es completado retroactivamente (ver *Detalles*). Para facilitar este proceso, puede adaptarse y ejecutarse el siguiente script SQL:
+
+```
+begin work;
+update c_invoice as i set 
+	afipdoctype = case
+		-- Otros comprobantes
+		when dt.doctypekey in (
+				'RTI'	-- Retencion_Invoice
+				, 'RTR' -- Retencion_Receipt
+				, 'RCI' -- Retencion_InvoiceCustomer
+				, 'RCR' -- Retencion_ReceiptCustomer
+			) then '099' -- Otros Comprobantes
+		
+		-- Facturas Cliente
+		when 
+			i.issotrx = 'Y' 
+			and dt.docsubtypecae is not null 
+			then '0' || dt.docsubtypecae -- Toma docsubtypecae como referencia
+
+		-- Facturas Proveedores
+		when 
+			dt.docbasetype = 'API' and i.c_letra_comprobante_id in(1010039, 1010040) then
+			case
+				when i.c_letra_comprobante_id = 1010039 then '001' -- A
+				else '006' -- B				
+			end
+
+		-- NCs Proveedores
+		when 
+			dt.docbasetype = 'APC' and i.c_letra_comprobante_id in(1010039, 1010040) then
+			case	
+				when i.c_letra_comprobante_id = 1010039 then '003' -- A
+				else '008' -- B				
+			end
+
+		-- Para el resto de los casos no modifica el valor	
+		else afipdoctype 
+		end 
+from c_doctype dt 
+where
+	i.ad_client_id = 1010016
+	and i.c_doctype_id = dt.c_doctype_id
+	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y')
+	and i.docstatus = 'CO'
+;
+rollback;
+```
+
