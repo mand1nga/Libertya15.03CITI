@@ -72,7 +72,7 @@ public class ExportaCITI extends SvrProcess {
 			"join c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
 			"where \n" + 
 			"	inv.dateacct between ? and ? and \n" + 
-			"	inv.c_doctype_id not in (1010517, 1010518, 1010519, 1010520) \n" + 
+			"	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y') \n" + 
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
 			"group by 1,2,3,4,5,6,7,8,9,12,12,14,15 \n" +
@@ -125,10 +125,10 @@ public class ExportaCITI extends SvrProcess {
 		if (!targetDir.exists())
 			targetDir.mkdir();
 		
-		String archivo_cbte = paramCarpetaSalida + "/REGINFO_CV_" + 
+		String archivo_cbte = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
 							  (paramTipoTransaccion.equalsIgnoreCase("V") ? "COMPRAS":"VENTAS") + "_CBTE_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
-		String archivo_alic = paramCarpetaSalida + "/REGINFO_CV_" + 
+		String archivo_alic = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
 							  (paramTipoTransaccion.equalsIgnoreCase("V") ? "COMPRAS":"VENTAS")  + "_ALICUOTAS_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
 		String result ="";
