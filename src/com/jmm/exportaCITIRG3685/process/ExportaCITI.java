@@ -62,9 +62,9 @@ public class ExportaCITI extends SvrProcess {
 			"	, sum(itax.taxbaseamt)\n" + 
 			"	, sum(itax.taxamt)\n" + 
 			"	, cur.wsfecode\n" + 
-			"	, tax.citirg3685\n" + 
+			"	, tax.citirg3685\n" +
+			"	, tax.WSFEcode \n" +			
 			"	, ltr.letra \n" +
-			"	, tax.WSFEcode \n" + 
 			"from c_invoicetax itax \n" + 
 			"join c_invoice inv on itax.c_invoice_id = inv.c_invoice_id \n" + 
 			"join c_doctype dt on inv.c_doctype_id = dt.c_doctype_id \n" + 
@@ -73,13 +73,13 @@ public class ExportaCITI extends SvrProcess {
 			"join c_tax tax on itax.c_tax_id = tax.c_tax_id \n" + 
 			"join c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
 			"where \n" + 
-			"	inv.dateacct between ? and ? and \n" + 
+			"	inv.dateacct between ? and ? \n" + 
 			"	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y') \n" + 
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
-			"group by 1,2,3,4,5,6,7,8,9,12,12,14,15 \n" +
+			"group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 12 , 13, 14, 15 \n" +
 			"order by \n" + 
-			"	inv.dateinvoiced asc, inv.c_invoice_id, bp.name, inv.documentno, tax.citirg3685\n"
+			"	3 asc, inv.c_invoice_id, bp.name, inv.documentno, tax.citirg3685\n"
 			;
 
 	private static final int IX_INVOICE_ID 				= 1;
@@ -110,7 +110,7 @@ public class ExportaCITI extends SvrProcess {
             if(para[i].getParameter() == null)
                 ;
             else if (name.equalsIgnoreCase("Periodo"))
-            	paramPeriodo = MPeriod.get(Env.getCtx(), ((BigDecimal) para[i].getParameter()).intValueExact(), Env.getCtx().getProperty(name));
+            	paramPeriodo = MPeriod.get(Env.getCtx(), Integer.valueOf((String)para[i].getParameter()), Env.getCtx().getProperty(name));
              else if(name.equalsIgnoreCase("TipoTrans")) 
             	paramTipoTransaccion = (String)para[i].getParameter();
              else if(name.equalsIgnoreCase("Directorio")) 
@@ -129,10 +129,10 @@ public class ExportaCITI extends SvrProcess {
 			targetDir.mkdir();
 		
 		String archivo_cbte = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
-							  (isSOTrx ? "COMPRAS" : "VENTAS") + "_CBTE_" +
+							  (isSOTrx ? "VENTAS" : "COMPRAS") + "_CBTE_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
 		String archivo_alic = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
-							  (isSOTrx ? "COMPRAS" : "VENTAS")  + "_ALICUOTAS_" +
+							  (isSOTrx ? "VENTAS" : "COMPRAS" )  + "_ALICUOTAS_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
 		String result ="";
 		String lineSeparator = System.getProperty("line.separator");
@@ -184,7 +184,7 @@ public class ExportaCITI extends SvrProcess {
  		return result;
 	}				
 	
-	private int creaArchivos(FileWriter fw_c , FileWriter fw_a) throws IOException, SQLException
+	private int creaArchivos(FileWriter fw_c , FileWriter fw_a) throws Exception
 	{
 		String lineSeparator = System.getProperty("line.separator");
 		int cant = 0;
@@ -226,9 +226,13 @@ public class ExportaCITI extends SvrProcess {
 			bpNombre = pad(rs.getString(IX_BP_NAME).toUpperCase(), 30, false);
 			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
 			
-			citiReference = rs.getString(IX_TAX_CITI_REF).toUpperCase();
+			citiReference = rs.getString(IX_TAX_CITI_REF);
+			
+			if(citiReference==null)
+				throw new Exception("No se pudo determinar el código de impuesto para " + rs.getString(IX_INVOICE_DOCUMENT_NO));
+			citiReference = citiReference.trim().toUpperCase();
 
-			if (cmpLetra.equals("A") || cmpLetra.equals("B") ||cmpLetra.equals("M") || esOtros(cmpTipo)){
+			if (cmpLetra.equals("A") || cmpLetra.equals("B") || cmpLetra.equals("M") || esOtros(cmpTipo)){
 				boolean write = false;
 				la = new StringBuffer();
 				la.append(cmpTipo);
@@ -397,7 +401,7 @@ public class ExportaCITI extends SvrProcess {
      * como crédito o débto fiscal
      */
     private Boolean esCreditoDebitoFiscal(String reference){
-    	return reference.trim().equalsIgnoreCase(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA);
+    	return reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA);
     }
     
     /*
@@ -429,7 +433,7 @@ public class ExportaCITI extends SvrProcess {
     		ret = true;
 		else{
 	    	rs.next();
-	    	ret = !(rs.getInt(IX_TAX_CITI_REF) == id);
+	    	ret = !(rs.getInt(IX_INVOICE_ID) == id);
 	    	rs.previous();
 		}
 		
