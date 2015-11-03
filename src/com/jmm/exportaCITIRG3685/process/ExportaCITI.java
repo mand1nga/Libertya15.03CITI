@@ -38,7 +38,8 @@ public class ExportaCITI extends SvrProcess {
     private String paramTipoTransaccion;
     private String paramCarpetaSalida = "";
     private ResultSet rs = null;
-	private int invoiceId;    
+	private int invoiceId;
+	boolean isSOTrx;
 	private Double montoConsumidorFinal, montoIVA, montoIIBB
 			, montoImpNacionales, montoImpMunicipales, montoImpOtros
 			, montoOperacionesExentas; 
@@ -120,16 +121,17 @@ public class ExportaCITI extends SvrProcess {
 	}
 	
 	protected String doIt() throws java.lang.Exception {
+		isSOTrx = !paramTipoTransaccion.equalsIgnoreCase("V") ;
 		
 		File targetDir = new File (paramCarpetaSalida);
 		if (!targetDir.exists())
 			targetDir.mkdir();
 		
 		String archivo_cbte = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
-							  (paramTipoTransaccion.equalsIgnoreCase("V") ? "COMPRAS":"VENTAS") + "_CBTE_" +
+							  (isSOTrx ? "COMPRAS" : "VENTAS") + "_CBTE_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
 		String archivo_alic = paramCarpetaSalida + File.separator + "REGINFO_CV_" + 
-							  (paramTipoTransaccion.equalsIgnoreCase("V") ? "COMPRAS":"VENTAS")  + "_ALICUOTAS_" +
+							  (isSOTrx ? "COMPRAS" : "VENTAS")  + "_ALICUOTAS_" +
 							  paramPeriodo.getName().toUpperCase() + ".txt";
 		String result ="";
 		String lineSeparator = System.getProperty("line.separator");
@@ -145,11 +147,9 @@ public class ExportaCITI extends SvrProcess {
  			 * el preparestatement.
  			 */
  			pstmt = DB.getConnectionRW().prepareStatement(QUERY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
- 			/*pstmt.setTimestamp(1, date_from);
- 			pstmt.setTimestamp(2, date_to);*/
  			pstmt.setTimestamp(1, paramPeriodo.getStartDate());
  			pstmt.setTimestamp(2, paramPeriodo.getEndDate());
- 			pstmt.setString(3, (paramTipoTransaccion.equalsIgnoreCase("V")?"N":"Y"));
+ 			pstmt.setString(3, isSOTrx ? "Y" : "N");
  			rs = pstmt.executeQuery();
  			
  			cbtes = new FileWriter(archivo_cbte);
@@ -236,7 +236,7 @@ public class ExportaCITI extends SvrProcess {
  				else
  	 				la.append(cmpPuntoVenta);
  				la.append(cmpNumero);
- 				if (paramTipoTransaccion.equalsIgnoreCase("V")){			// los campos 6 y 7 no van para informes de ventas
+ 				if (!isSOTrx){			// los campos 6 y 7 no van para informes de ventas
  					la.append(bpCodigoIdentificadorFiscal);
  					la.append(bpIdentificadorFiscal);
  				}
@@ -277,7 +277,7 @@ public class ExportaCITI extends SvrProcess {
 				else
 					lc.append(cmpPuntoVenta);
 				lc.append(cmpNumero);
-				if (paramTipoTransaccion.equalsIgnoreCase("V"))
+				if (!isSOTrx)
 					// TODO: las importaciones no están soportadas por esta versión.
 					lc.append("                ");
 				else
@@ -307,13 +307,13 @@ public class ExportaCITI extends SvrProcess {
 					lc.append("E");
 				else
 					lc.append("0");
-				if (paramTipoTransaccion.equalsIgnoreCase("V"))
+				if (!isSOTrx)
 					lc.append(pad(formatAmount(montoConsumidorFinal), 15, true));
 				lc.append(pad(formatAmount(montoImpOtros), 15, true));
-				if (paramTipoTransaccion.equalsIgnoreCase("V"))
+				if (!isSOTrx)
 					// TODO: dar soporte para comisiones de corredores
 					lc.append("00000000000                              000000000000000");
-				if (!paramTipoTransaccion.equalsIgnoreCase("V"))
+				if (isSOTrx)
 					lc.append(cmpFecha);
 				lc.append(lineSeparator);
  				fw_c.write(lc.toString());
@@ -432,21 +432,30 @@ public class ExportaCITI extends SvrProcess {
 	    	rs.previous();
 		}
 		
+		Double taxAmount = rs.getDouble(IX_INVOICE_TAX_AMT);
+		Double taxBaseAmount = rs.getDouble(IX_INVOICE_TAX_AMT_BASE);
+		
 		String reference = rs.getString(IX_TAX_CITI_REF).trim().toUpperCase();
 		if (reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA))
-			montoConsumidorFinal +=rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoConsumidorFinal += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.PERCEPTIONTYPE_IVA))
-			montoIVA += rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoIVA += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIngresosBrutos))
-			montoIIBB += rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoIIBB += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosNacionales))
-			montoImpNacionales += rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoImpNacionales += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosMunicipales))
-			montoImpMunicipales += rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoImpMunicipales += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_OtrosImpuestos))
-			montoImpOtros += rs.getDouble(IX_INVOICE_TAX_AMT);
+			montoImpOtros += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
-			montoOperacionesExentas += rs.getDouble(IX_INVOICE_TAX_AMT_BASE);
+			montoOperacionesExentas += taxBaseAmount;
 		
 		return ret;
     }
