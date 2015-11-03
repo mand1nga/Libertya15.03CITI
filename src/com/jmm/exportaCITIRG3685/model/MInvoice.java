@@ -26,23 +26,5 @@ public class MInvoice extends MPluginPO {
 	public MInvoice(PO po, Properties ctx, String trxName, String aPackage) {
 		super(po, ctx, trxName, aPackage);
 	}
- 
-	
-	public MPluginStatusPO postBeforeSave(PO po, boolean newRecord) {
-		LP_C_Invoice lp_invoice = (LP_C_Invoice) po;
-		
-		MDocType dt = MDocType.get(po.getCtx(), lp_invoice.getC_DocTypeTarget_ID());
 
-		if (dt.isDocType(MDocType.DOCTYPE_Retencion_Invoice) ||	dt.isDocType(MDocType.DOCTYPE_Retencion_Receipt) ||
-			dt.isDocType(MDocType.DOCTYPE_Retencion_InvoiceCustomer) ||	dt.isDocType(MDocType.DOCTYPE_Retencion_ReceiptCustomer))
-	
-			lp_invoice.setafipdoctype(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes);
-		else
-			// AFIP doctype equivale a "0" + docsubtypecae
-			if (lp_invoice.isSOTrx())
-				lp_invoice.setafipdoctype(String.format("%1$03d", Integer.parseInt(dt.getdocsubtypecae())));
-
-		
-		return status_po;
-	}	
 }
