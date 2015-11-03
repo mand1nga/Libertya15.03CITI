@@ -31,6 +31,7 @@ import org.openXpertya.util.Env;
 
 import com.jmm.exportaCITIRG3685.model.LP_C_Invoice;
 import com.jmm.exportaCITIRG3685.model.LP_C_Tax;
+import com.jmm.exportaCITIRG3685.model.MInvoice;
 
 public class ExportaCITI extends SvrProcess {
   
@@ -403,8 +404,8 @@ public class ExportaCITI extends SvrProcess {
      * Devuelve verdadero si el tipo de comprobante es "Otros comprobantes" u "Otros comprobantes - credito".
      */
     private Boolean esOtros(String tipo){
-    	return tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito) 
-    			|| tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes);
+    	return tipo.equals(MInvoice.AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito) 
+    			|| tipo.equals(MInvoice.AFIPDOCTYPE_OtrosComprobantes);
     }
     
     /*
