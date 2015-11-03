@@ -29,6 +29,7 @@ import org.openXpertya.process.SvrProcess;
 import org.openXpertya.util.DB;
 import org.openXpertya.util.Env;
 
+import com.jmm.exportaCITIRG3685.model.LP_C_Invoice;
 import com.jmm.exportaCITIRG3685.model.LP_C_Tax;
 
 public class ExportaCITI extends SvrProcess {
@@ -41,6 +42,9 @@ public class ExportaCITI extends SvrProcess {
 	private Double montoConsumidorFinal, montoIVA, montoIIBB
 			, montoImpNacionales, montoImpMunicipales, montoImpOtros
 			, montoOperacionesExentas; 
+
+	private static final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");	
+	private static final DecimalFormat decimalFormat = new DecimalFormat("#.00");
 	
 	private static final String QUERY = 			
 			"select \n" + 
@@ -334,8 +338,6 @@ public class ExportaCITI extends SvrProcess {
 	 * Retorna la fecha en formato anio mes dia
 	 */
     private String formatDate(Date fecha) {
-        
-    	DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
         return dateFormat.format(fecha);
     }
 
@@ -343,9 +345,7 @@ public class ExportaCITI extends SvrProcess {
      * Retorna el monto como un string sin el punto decimal 
      */
     private String formatAmount(Double amt) {
-    	
-    	DecimalFormat df = new DecimalFormat("#.00");
-    	return df.format(amt).replace(".", "").replace(",", "");
+    	return decimalFormat.format(amt).replace(".", "").replace(",", "");
     }
     
     /*
@@ -403,7 +403,8 @@ public class ExportaCITI extends SvrProcess {
      * Devuelve verdadero si el tipo de comprobante es "Otros comprobantes" u "Otros comprobantes - credito".
      */
     private Boolean esOtros(String tipo){
-    	return (tipo.equals("090") || tipo.equals("099"));
+    	return tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito) 
+    			|| tipo.equals(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes);
     }
     
     /*

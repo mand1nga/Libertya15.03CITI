@@ -36,9 +36,10 @@ public class MInvoice extends MPluginPO {
 		if (dt.isDocType(MDocType.DOCTYPE_Retencion_Invoice) ||	dt.isDocType(MDocType.DOCTYPE_Retencion_Receipt) ||
 			dt.isDocType(MDocType.DOCTYPE_Retencion_InvoiceCustomer) ||	dt.isDocType(MDocType.DOCTYPE_Retencion_ReceiptCustomer))
 	
-			lp_invoice.setafipdoctype("099");
+			lp_invoice.setafipdoctype(LP_C_Invoice.AFIPDOCTYPE_OtrosComprobantes);
 		else
-			if ((lp_invoice.isSOTrx()))
+			// AFIP doctype equivale a "0" + docsubtypecae
+			if (lp_invoice.isSOTrx())
 				lp_invoice.setafipdoctype(String.format("%1$03d", Integer.parseInt(dt.getdocsubtypecae())));
 
 		
