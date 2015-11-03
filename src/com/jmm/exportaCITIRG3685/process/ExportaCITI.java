@@ -109,9 +109,17 @@ public class ExportaCITI extends SvrProcess {
 
             if(para[i].getParameter() == null)
                 ;
-            else if (name.equalsIgnoreCase("Periodo"))
-            	paramPeriodo = MPeriod.get(Env.getCtx(), Integer.valueOf((String)para[i].getParameter()), Env.getCtx().getProperty(name));
-             else if(name.equalsIgnoreCase("TipoTrans")) 
+            else if (name.equalsIgnoreCase("Periodo")){
+            	// don't ask
+            	int id;
+            	Object parameter = para[i].getParameter();
+            	if(parameter instanceof String)
+            		id = Integer.valueOf((String)para[i].getParameter());
+            	else
+            		id = ((BigDecimal) para[i].getParameter()).intValueExact();
+            	
+            	paramPeriodo = MPeriod.get(Env.getCtx(), id, Env.getCtx().getProperty(name));
+            } else if(name.equalsIgnoreCase("TipoTrans")) 
             	paramTipoTransaccion = (String)para[i].getParameter();
              else if(name.equalsIgnoreCase("Directorio")) 
             	paramCarpetaSalida = (String)para[i].getParameter();
