@@ -28,7 +28,10 @@ public class CalloutInvoice extends CalloutEngine {
 		return fixAFIPDocType(ctx, WindowNo, mTab);
 	}
 	
-	private String fixAFIPDocType(Properties ctx,	int WindowNo, MTab mTab){
+	private String fixAFIPDocType(Properties ctx, int WindowNo, MTab mTab){
+		if(!mTab.isInserting())
+			return "";
+
 		String state = "";
 		int cInvoiceId = Env.getContextAsInt(ctx, WindowNo, "C_Invoice_ID");
 		boolean isSOTrx = Env.getContext(ctx, WindowNo, "IsSOTrx").equals("Y");		
@@ -92,8 +95,14 @@ public class CalloutInvoice extends CalloutEngine {
 		return state;
 	}
 	
-	private void setAfipDocType(MTab mTab, String dt){
-		s_log.finest("setting afipdoctype = " + dt);
-		mTab.setValue("afipdoctype", dt);
+	private void setAfipDocType(MTab mTab, String afipDocType){
+		if(afipDocType==null)
+			return;
+		s_log.finest("setting afipdoctype = " + afipDocType);
+		try{
+			mTab.setValue("afipdoctype", afipDocType);
+		}catch(Exception e){
+			s_log.warning(e.getMessage());
+		}
 	}	
 }
