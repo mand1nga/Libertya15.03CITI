@@ -2,6 +2,20 @@
 
 Plugin de Libertya ERP 15.03 para generar archivos TXT según RG 3685 de AFIP (Régimen de información compras y ventas).
 
+Para poder generar los archivos, el sistema deberá poder relacionar diferentes datos del sistema con códigos provistos por la AFIP. Estos datos son:
+
+* **Tipo de Comprobante**
+
+    Para este fin se agregó un campo desplegable en las ventanas de *Facturas Cliente* y *Facturas Proveedor*. Este plugin intenta completar este campo automáticamente, de acuerdo a como se haya configurado el *Tipo de Comprobante* en cuestión.
+
+* **Tipo de Impuesto**
+
+    Para poder relacionar este dato, este plugin agrega un campo desplegable en la ventana `Categoría de Impuestos`, pestaña `Impuesto`.
+
+* **Moneda**
+
+    Se utiliza el campo c_currency.wsfecode ya existente en Libertya ERP. Este campo puede *no* estar visible por default en la ventana de `Moneda`, dentro del perfil `Configuración de la Compañía`.
+
 ## Instalación
 
 ### Instalar Plugin
@@ -19,7 +33,6 @@ Antes que todo, asegurarse que la referencia `DocSubTypeCae` tiene declarados to
 #### Tipos de Comprobantes Libertya ERP
 
 Si se quiere asociar de forma predeterminada un TdC de Libertya ERP con un TdC de la AFIP, esto podrá hacerse desde la ventana `Tipos de Documento` dentro del perfil `Configuración de la Compañía`. Allí, el TdC de la AFIP figura por default como `Tipo de Documento Electrónico`. Tener en cuenta que este campo puede o no estar visible, de acuerdo a la configuración propia de cada TdC.
-
 
 ### Configurar Impuestos
 
@@ -88,22 +101,22 @@ update c_invoice as i set
 		when 
 			i.issotrx = 'Y' 
 			and dt.docsubtypecae is not null 
-			then '0' || dt.docsubtypecae -- Toma docsubtypecae como referencia
+			then dt.docsubtypecae -- Toma docsubtypecae como referencia
 
 		-- Facturas Proveedores
 		when 
 			dt.docbasetype = 'API' and i.c_letra_comprobante_id in(1010039, 1010040) then
 			case
-				when i.c_letra_comprobante_id = 1010039 then '001' -- A
-				else '006' -- B				
+				when i.c_letra_comprobante_id = 1010039 then '01' -- A
+				else '06' -- B				
 			end
 
 		-- NCs Proveedores
 		when 
 			dt.docbasetype = 'APC' and i.c_letra_comprobante_id in(1010039, 1010040) then
 			case	
-				when i.c_letra_comprobante_id = 1010039 then '003' -- A
-				else '008' -- B				
+				when i.c_letra_comprobante_id = 1010039 then '03' -- A
+				else '08' -- B				
 			end
 
 		-- Para el resto de los casos no modifica el valor	
