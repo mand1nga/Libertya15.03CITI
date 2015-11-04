@@ -341,7 +341,7 @@
 </column>
 <column name="FieldLength" type="11">
 <oldValue>null</oldValue>
-<newValue>3</newValue>
+<newValue>2</newValue>
 </column>
 <column name="IsActive" type="20">
 <oldValue>null</oldValue>
