@@ -194,7 +194,7 @@ public class ExportaCITI extends SvrProcess {
 	
 	private int creaArchivos(FileWriter fw_c , FileWriter fw_a) throws Exception
 	{
-		String lineSeparator = System.getProperty("line.separator");
+		String lineSeparator = "\r\n";
 		int cant = 0;
 		int q_alic = 0;
 		
