@@ -18,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
+import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -231,7 +232,7 @@ public class ExportaCITI extends SvrProcess {
 			bpIdentificadorFiscal = pad(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, true);
 			cmpTotal = pad(formatAmount(rs.getDouble(IX_INVOICE_GRANDTOTAL)), 15, true);
 			monedaCodigoWSFE = rs.getString(IX_CURRENCY_WSFECODE);
-			bpNombre = pad(rs.getString(IX_BP_NAME).toUpperCase(), 30, false);
+			bpNombre = pad(formatString(rs.getString(IX_BP_NAME).toUpperCase()), 30, false);
 			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
 			
 			citiReference = rs.getString(IX_TAX_CITI_REF);
@@ -472,4 +473,10 @@ public class ExportaCITI extends SvrProcess {
 		
 		return ret;
     }
+    
+    private String formatString(String s){
+    	// Normalizo y reemplazo caracteres no ASCII por #
+    	return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("[^\\x00-\\x7F]", "#");
+    }
+    
 }
