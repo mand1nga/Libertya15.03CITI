@@ -4523,10 +4523,6 @@
 <oldValue>null</oldValue>
 <newValue>com.jmm.exportaCITIRG3685.process.ExportaCITI</newValue>
 </column>
-<column name="ConcurrentExecution" type="17">
-<oldValue>null</oldValue>
-<newValue>N</newValue>
-</column>
 <column name="CopyParameters" type="28">
 <oldValue>null</oldValue>
 <newValue>N</newValue>
