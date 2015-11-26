@@ -244,42 +244,39 @@ public class ExportaCITI extends SvrProcess {
 			citiReference = citiReference.trim().toUpperCase();
 
 			if (cmpLetra.equals("A") || (cmpLetra.equals("B") && !isSOTrx) || cmpLetra.equals("M") || esOtros(cmpTipo)){
-				boolean write = false;
 				la = new StringBuffer();
 				la.append(cmpTipo);
+				
  				if (esOtros(cmpTipo))
  	 				la.append("00000");
  				else
  	 				la.append(cmpPuntoVenta);
+ 				
  				la.append(cmpNumero);
  				if (!isSOTrx){			// los campos 6 y 7 no van para informes de ventas
  					la.append(bpCodigoIdentificadorFiscal);
  					la.append(bpIdentificadorFiscal);
  				}
 
-				if (esCreditoDebitoFiscal(citiReference)){
-					if(operacionCondicionIVA==null)
-						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
-	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));		// NG
-	 				la.append(pad(operacionCondicionIVA.toString(), 4, true));					// Alícuota de IVA
-	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
-	 				write = true;
-				}else if (montoConsumidorFinal == 0.0 && 
-						citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos)){
-					if(operacionCondicionIVA==null)
-						throw new OperacionCondicionIVAFaltanteException(cmpNumero);					
-					// 	Montos no gravados en Fac A o M					
-					la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));	// Monto no gravado
-					la.append(pad(operacionCondicionIVA.toString(), 4, true));				// Alícuota de IVA
-	 				la.append(pad("0", 15, true));
-	 				write = true;
-				}
-				if(write){
+ 				boolean write = false;
+ 				
+ 				if (esCreditoDebitoFiscal(citiReference))
+ 					write = true;
+ 				else if (montoConsumidorFinal == 0.0 && citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
+ 					write = true;
+ 				
+ 				if(write){
+ 					if(operacionCondicionIVA==null)
+ 						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
+ 					
+ 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));
+ 	 				la.append(pad(operacionCondicionIVA.toString(), 4, true));						// Alícuota de IVA
+ 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
+ 					
 	 				q_alic++;
 	 				la.append(lineSeparator);
-	 				fw_a.write(la.toString());					
-				}
-				la = null;				
+	 				fw_a.write(la.toString());
+ 				}
 			}
 			
 			/*
