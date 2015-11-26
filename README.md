@@ -95,7 +95,7 @@ update c_invoice as i set
 				, 'RTR' -- Retencion_Receipt
 				, 'RCI' -- Retencion_InvoiceCustomer
 				, 'RCR' -- Retencion_ReceiptCustomer
-			) then '099' -- Otros Comprobantes
+			) then '99' -- Otros Comprobantes
 		
 		-- Facturas Cliente
 		when 
