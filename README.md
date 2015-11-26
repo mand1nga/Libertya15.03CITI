@@ -152,6 +152,7 @@ update c_invoice as i set
 from c_doctype dt 
 where
 	i.ad_client_id = 1010016
+	and i.afipdoctype is null
 	and i.c_doctype_id = dt.c_doctype_id
 	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y')
 	and i.docstatus = 'CO'
