@@ -215,6 +215,7 @@ public class ExportaCITI extends SvrProcess {
 		
 		String monedaCodigoWSFE;
 		String citiReference = "";
+		Integer operacionCondicionIVA;
 
 		
 		while(rs.next())
@@ -236,6 +237,7 @@ public class ExportaCITI extends SvrProcess {
 			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
 			
 			citiReference = rs.getString(IX_TAX_CITI_REF);
+			operacionCondicionIVA = rs.getObject(IX_TAX_WSFE_CODE) == null ? null : rs.getInt(IX_TAX_WSFE_CODE);
 			
 			if(citiReference==null)
 				throw new Exception("No se pudo determinar el código de impuesto para " + rs.getString(IX_INVOICE_DOCUMENT_NO));
@@ -256,16 +258,19 @@ public class ExportaCITI extends SvrProcess {
  				}
 
 				if (esCreditoDebitoFiscal(citiReference)){
+					if(operacionCondicionIVA==null)
+						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));		// NG
-	 				la.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));					// Alícuota de IVA
+	 				la.append(pad(operacionCondicionIVA.toString(), 4, true));					// Alícuota de IVA
 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
 	 				write = true;
 				}else if (montoConsumidorFinal == 0.0 && 
 						citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos)){
-					
+					if(operacionCondicionIVA==null)
+						throw new OperacionCondicionIVAFaltanteException(cmpNumero);					
 					// 	Montos no gravados en Fac A o M					
 					la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));	// Monto no gravado
-					la.append(pad(rs.getString(IX_TAX_WSFE_CODE), 4, true));				// Alícuota de IVA
+					la.append(pad(operacionCondicionIVA.toString(), 4, true));				// Alícuota de IVA
 	 				la.append(pad("0", 15, true));
 	 				write = true;
 				}
@@ -477,6 +482,15 @@ public class ExportaCITI extends SvrProcess {
     private String formatString(String s){
     	// Normalizo y reemplazo caracteres no ASCII por #
     	return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("[^\\x00-\\x7F]", "#");
+    }
+    
+    @SuppressWarnings("serial")
+	public class OperacionCondicionIVAFaltanteException extends Exception {
+    	public OperacionCondicionIVAFaltanteException(String documentNo){
+    		// don't hate the player, hate the game ;)
+    		// renombrar WSFE si alguna vez se renombra wsfecode, que se usa para más que para facturar electrónicamente
+    		super("No está configurada la Operación / condición de IVA / Alícuota de IVA / WSFE para " + documentNo);
+    	}
     }
     
 }

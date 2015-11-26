@@ -36,7 +36,9 @@ Si se quiere asociar de forma predeterminada un TdC de Libertya ERP con un TdC d
 
 ### Configurar Impuestos
 
-Ingresar a la ventana `Categoría de Impuestos`, luego configurar en la pestaña `Impuesto` allí asignar el código de impuesto correspondiente a esta RG.
+Ingresar a la ventana `Categoría de Impuestos`, luego en la pestaña `Impuesto`, para cada registro activo y que no sea del tipo _Carpeta_ deberá configurarse
+
+#### Código de impuesto correspondiente a esta RG.
 
 A modo de ayuda, se puede ejecutar el siguiente script en la base de datos
 
@@ -50,6 +52,31 @@ where
 	citirg3685 is null 
 	and isactive = 'Y'
 	and rate in (0, 21, 10.5)
+;
+```
+
+####  Alícuota de IVA / Operación / Condición IVA / WSFE
+
+Parece que no, pero estamos hablando de un solo campo, referido de diferentes formas tanto por la AFIP como por el sistema. Para mayor información, consultar las tablas de valores de la AFIP.
+
+A modo de ayuda, se puede ejecutar el siguiente script en la base de datos
+
+```
+update c_tax set wsfecode = 
+	case 
+		when istaxexempt = 'Y' then 2
+		when rate = 0 then 3
+		when rate = 10.5 then 4
+		when rate = 21 then 5
+		when rate = 27 then 6
+		when rate = 5 then 8
+		when rate = 2.5 then 9
+		else wsfecode 
+	end
+where 
+	wsfecode is null 
+	and isactive = 'Y' and issummary = 'N'
+	and (rate in (0, 2.5, 5, 10.5, 21, 27) or istaxexempt = 'Y')
 ;
 ```
 
