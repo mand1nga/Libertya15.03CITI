@@ -17,6 +17,7 @@ package com.jmm.exportaCITIRG3685.model;
  
 import java.util.Properties;
 
+import org.openXpertya.model.MLetraComprobante;
 import org.openXpertya.model.PO;
 import org.openXpertya.model.MDocType;
 import org.openXpertya.plugin.MPluginPO;
@@ -88,6 +89,79 @@ public class MInvoice extends MPluginPO {
 	/** Otros comprobantes - Notas de crédito = 90 */
 	public static final String AFIPDOCTYPE_OtrosComprobantes_NotasDeCrédito = "90";
 	/** Otros comprobantes = 99 */
-	public static final String AFIPDOCTYPE_OtrosComprobantes = "99";	
+	public static final String AFIPDOCTYPE_OtrosComprobantes = "99";
+	
+	public static String guessAFIPDocType(Properties ctx, boolean isSOTrx, int cLetraComprobanteId, int cDocTypeTargetId){
+		
+		if(cDocTypeTargetId==0)
+			return null;		
+		
+		MDocType dt = MDocType.get(ctx, cDocTypeTargetId);
+
+		String docBaseType = dt.getDocBaseType();
+		String docTypeAFIP = dt.getdocsubtypecae();
+		
+		if(docTypeAFIP==null || docTypeAFIP.isEmpty()){	
+			
+			if (docBaseType.equals(MDocType.DOCTYPE_Retencion_Invoice) 
+					|| docBaseType.equals(MDocType.DOCTYPE_Retencion_Receipt) 
+					|| docBaseType.equals(MDocType.DOCTYPE_Retencion_InvoiceCustomer) 
+					|| docBaseType.equals(MDocType.DOCTYPE_Retencion_ReceiptCustomer)
+			){				
+				return MInvoice.AFIPDOCTYPE_OtrosComprobantes;
+			}else {				
+				// Ayuda para determinar el codigo de comprobante segun AFIP
+				// Comprobantes de compra, con letra asignada
+				if (!isSOTrx && cLetraComprobanteId > 0){
+
+					MLetraComprobante mLetraComprobante = new MLetraComprobante(
+							ctx, cLetraComprobanteId, null);
+
+					String letra = mLetraComprobante.getLetra();
+
+					if(docBaseType.equals(MDocType.DOCBASETYPE_APInvoice)){
+						// Facturas
+						if(letra.equals("A"))
+							return MInvoice.AFIPDOCTYPE_FacturasA;
+						else if(letra.equals("B"))
+							return MInvoice.AFIPDOCTYPE_FacturasB;
+						else if(letra.equals("C"))
+							return MInvoice.AFIPDOCTYPE_FacturasC;						
+						else if(letra.equals("M"))
+							return MInvoice.AFIPDOCTYPE_FacturasM;
+						
+					}else if(docBaseType.equals(MDocType.DOCBASETYPE_APCreditMemo)){
+						// NCs
+						if(letra.equals("A"))
+							return MInvoice.AFIPDOCTYPE_NotasDeCreditoA;
+						else if(letra.equals("B"))
+							return MInvoice.AFIPDOCTYPE_NotasDeCreditoB;
+						else if(letra.equals("C"))
+							return MInvoice.AFIPDOCTYPE_NotasDeCreditoC;						
+						else if(letra.equals("M"))
+							return MInvoice.AFIPDOCTYPE_NotasDeCreditoM;						
+					}
+				}
+			}
+		}else{
+			return docTypeAFIP;
+		}
+		
+		return null;
+	}
+	
+	public MPluginStatusPO preBeforeSave(PO po, boolean newRecord) {	
+		LP_C_Invoice invoice = (LP_C_Invoice) po;
+				
+		if(invoice.getafipdoctype() == null || invoice.getafipdoctype().isEmpty()){
+			String guessedAFIPDocType = guessAFIPDocType( invoice.getCtx(), 
+					invoice.isSOTrx(), invoice.getC_Letra_Comprobante_ID(), invoice.getC_DocType_ID());
+			
+			if(guessedAFIPDocType!=null)
+				invoice.setafipdoctype(guessedAFIPDocType);
+		}
+		
+		return status_po;
+	}
 
 }
