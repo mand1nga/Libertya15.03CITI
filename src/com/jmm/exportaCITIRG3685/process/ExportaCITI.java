@@ -243,7 +243,7 @@ public class ExportaCITI extends SvrProcess {
 				throw new Exception("No se pudo determinar el código de impuesto para " + rs.getString(IX_INVOICE_DOCUMENT_NO));
 			citiReference = citiReference.trim().toUpperCase();
 
-			if (cmpLetra.equals("A") || (cmpLetra.equals("B") && !isSOTrx) || cmpLetra.equals("M") || esOtros(cmpTipo)){
+			if (cmpLetra.equals("A") || (cmpLetra.equals("B") && isSOTrx) || cmpLetra.equals("M") || esOtros(cmpTipo)){
 				la = new StringBuffer();
 				la.append(cmpTipo);
 				
