@@ -30,7 +30,6 @@ import org.openXpertya.process.SvrProcess;
 import org.openXpertya.util.DB;
 import org.openXpertya.util.Env;
 
-import com.jmm.exportaCITIRG3685.model.LP_C_Invoice;
 import com.jmm.exportaCITIRG3685.model.LP_C_Tax;
 import com.jmm.exportaCITIRG3685.model.MInvoice;
 
@@ -455,7 +454,7 @@ public class ExportaCITI extends SvrProcess {
 		if (reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA))
 			montoConsumidorFinal += taxAmount;
 		
-		else if (reference.equals(LP_C_Tax.PERCEPTIONTYPE_IVA))
+		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIVA))
 			montoIVA += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIngresosBrutos))
