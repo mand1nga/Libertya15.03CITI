@@ -59,7 +59,7 @@ public class ExportaCITI extends SvrProcess {
 			"	, COALESCE(bp.taxidtype, '99') \n" + 
 			"	, COALESCE(bp.taxid, inv.nroidentificcliente)\n" + 
 			"	, bp.name\n" + 
-			"	, sum(case when itax.taxbaseamt = 0 then inv.netamount else itax.taxbaseamt end)\n" + 
+			"	, sum(case when itax.taxbaseamt = 0 and itax.taxamt != 0 then inv.netamount else itax.taxbaseamt end)\n" + 
 			"	, sum(itax.taxamt)\n" + 
 			"	, cur.wsfecode\n" + 
 			"	, tax.citirg3685\n" +
