@@ -224,6 +224,11 @@ public class ExportaCITI extends SvrProcess {
 			 * informe por comprobante, que va en un archivo separado.
 			*/
 
+            bpNombre = pad(formatString(rs.getString(IX_BP_NAME).toUpperCase()), 30, false);
+            
+            if(rs.getString(IX_BP_TAX_ID)==null)
+                throw new Exception(bpNombre + " no tiene un identificador fiscal cargado");          
+
 			cmpFecha = formatDate(rs.getDate(IX_INVOICE_DATE_INVOICED));
 			cmpTipo = pad(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, true);
 			cmpPuntoVenta = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, true);
@@ -232,7 +237,6 @@ public class ExportaCITI extends SvrProcess {
 			bpIdentificadorFiscal = pad(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, true);
 			cmpTotal = pad(formatAmount(rs.getDouble(IX_INVOICE_GRANDTOTAL)), 15, true);
 			monedaCodigoWSFE = rs.getString(IX_CURRENCY_WSFECODE);
-			bpNombre = pad(formatString(rs.getString(IX_BP_NAME).toUpperCase()), 30, false);
 			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
 			
 			citiReference = rs.getString(IX_TAX_CITI_REF);
@@ -470,7 +474,7 @@ public class ExportaCITI extends SvrProcess {
 			montoImpOtros += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
-			montoOperacionesExentas += taxBaseAmount;
+			montoOperacionesExentas += taxAmount;
 		
 		return ret;
     }
