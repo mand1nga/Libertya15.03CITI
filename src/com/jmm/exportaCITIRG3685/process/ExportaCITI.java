@@ -47,6 +47,8 @@ public class ExportaCITI extends SvrProcess {
 
 	private static final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");	
 	private static final DecimalFormat decimalFormat = new DecimalFormat("#.00");
+
+    private static final String lineSeparator = "\r\n";	
 	
 	private static final String QUERY = 			
 			"select \n" + 
@@ -192,9 +194,7 @@ public class ExportaCITI extends SvrProcess {
  		return result;
 	}				
 	
-	private int creaArchivos(FileWriter fw_c , FileWriter fw_a) throws Exception
-	{
-		String lineSeparator = "\r\n";
+	private int creaArchivos(FileWriter fw_c , FileWriter fw_a) throws Exception {
 		int cant = 0;
 		int q_alic = 0;
 		
@@ -224,18 +224,18 @@ public class ExportaCITI extends SvrProcess {
 			 * informe por comprobante, que va en un archivo separado.
 			*/
 
-            bpNombre = pad(formatString(rs.getString(IX_BP_NAME).toUpperCase()), 30, false);
+            bpNombre = padLeft(formatString(rs.getString(IX_BP_NAME).toUpperCase()), 30);
             
             if(rs.getString(IX_BP_TAX_ID)==null)
                 throw new Exception(bpNombre + " no tiene un identificador fiscal cargado");          
 
 			cmpFecha = formatDate(rs.getDate(IX_INVOICE_DATE_INVOICED));
-			cmpTipo = pad(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, true);
-			cmpPuntoVenta = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, true);
-			cmpNumero = pad(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6, 13), 20, true);
+			cmpTipo = padLeft(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, '0');
+			cmpPuntoVenta = padLeft(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, '0');
+			cmpNumero = padLeft(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6, 13), 20, '0');
 			bpCodigoIdentificadorFiscal = rs.getString(IX_BP_TAX_ID_TYPE);
-			bpIdentificadorFiscal = pad(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, true);
-			cmpTotal = pad(formatAmount(rs.getDouble(IX_INVOICE_GRANDTOTAL)), 15, true);
+			bpIdentificadorFiscal = padLeft(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, '0');
+			cmpTotal = formatNumber(rs.getDouble(IX_INVOICE_GRANDTOTAL), 15);
 			monedaCodigoWSFE = rs.getString(IX_CURRENCY_WSFECODE);
 			cmpLetra = rs.getString(IX_LETRA).toUpperCase();
 			
@@ -272,9 +272,9 @@ public class ExportaCITI extends SvrProcess {
  					if(operacionCondicionIVA==null)
  						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
  					
- 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT_BASE)), 15, true));
- 	 				la.append(pad(operacionCondicionIVA.toString(), 4, true));						// Alícuota de IVA
- 	 				la.append(pad(formatAmount(rs.getDouble(IX_INVOICE_TAX_AMT)), 15, true));		// IVA liquidado
+ 	 				la.append(formatNumber(rs.getDouble(IX_INVOICE_TAX_AMT_BASE), 15));
+ 	 				la.append(padLeft(operacionCondicionIVA.toString(), 4, '0')); // Alícuota de IVA
+ 	 				la.append(formatNumber(rs.getDouble(IX_INVOICE_TAX_AMT), 15)); // IVA liquidado
  					
 	 				q_alic++;
 	 				la.append(lineSeparator);
@@ -311,11 +311,11 @@ public class ExportaCITI extends SvrProcess {
 						((cmpLetra.equals("A") || esOtros(cmpTipo)) && montoConsumidorFinal == 0.0))
 					lc.append("000000000000000");
 				else
-					lc.append(pad(formatAmount(montoOperacionesExentas), 15, true));
-				lc.append(pad(formatAmount(montoIVA), 15, true));
-				lc.append(pad(formatAmount(montoImpNacionales), 15, true));
-				lc.append(pad(formatAmount(montoIIBB), 15, true));
-				lc.append(pad(formatAmount(montoImpMunicipales), 15, true));
+					lc.append(formatNumber(montoOperacionesExentas, 15));
+				lc.append(formatNumber(montoIVA, 15));
+				lc.append(formatNumber(montoImpNacionales, 15));
+				lc.append(formatNumber(montoIIBB, 15));
+				lc.append(formatNumber(montoImpMunicipales, 15));
 				// TODO: dar soporte a impuestos internos
 				lc.append("000000000000000");
 				// TODO: dar soporte multimoneda
@@ -327,8 +327,8 @@ public class ExportaCITI extends SvrProcess {
 				else
 					lc.append("0");
 				if (!isSOTrx)
-					lc.append(pad(formatAmount(montoConsumidorFinal), 15, true));
-				lc.append(pad(formatAmount(montoImpOtros), 15, true));
+					lc.append(formatNumber(montoConsumidorFinal, 15));
+				lc.append(formatNumber(montoImpOtros, 15));
 				if (!isSOTrx)
 					// TODO: dar soporte para comisiones de corredores
 					lc.append("00000000000                              000000000000000");
@@ -353,51 +353,72 @@ public class ExportaCITI extends SvrProcess {
 			
 	}
 	
-	/*
-	 * Retorna la fecha en formato anio mes dia
+	/**
+	 * Retorna la fecha en formato compatible con el aplicativo
 	 */
     private String formatDate(Date fecha) {
         return dateFormat.format(fecha);
     }
 
-    /*
-     * Retorna el monto como un string sin el punto decimal 
+    /**
+     * Rellena (hacia la izquierda) una cadena con caracteres en blanco
      */
-    private String formatAmount(Double amt) {
-    	return decimalFormat.format(amt).replace(".", "").replace(",", "");
+    private String padLeft(String str, int length){
+        return padLeft(str, length, ' ');
     }
     
-    /*
-     * Agrega la cantidad necesaria de ceros o espacios al inicio del argumento src
-     * para completar el largo indicado
-     * flag = true: agrega ceros
-     * flag = false: agrega espacios
+    /**
+     * Rellena cadena hacia la izquierda     
+     * @param str Cadena a ser rellenada (de ser necesario)
+     * @param length Largo total de la cadena resultante. Si la cadena original
+     *          es mas larga entonces se truncan los caracteres sobrantes.
+     * @param padding Caracter de relleno
+     * @return
      */
-    private String pad(String src, int largo, Boolean flag){
-    	
-    	StringBuffer ret = new StringBuffer();
-    	String r = new String();
-    	
-    	if (src == null)
-    		src = "";
-    	
-    	int n = largo - src.length();
-    	if (n < 0){
-    		r = src.substring(0, largo - 1);
-    		n = 1;
-    	}
-    	else
-    		r = src;
-    	
-    	final char[] arr = new char[n];
-    	Arrays.fill(arr, flag?'0':' ');
-    	
-    	ret.append(arr);
-    	ret.append(r);
-    	return ret.toString();
+    private String padLeft(String str, int length, char padding){
+        if(str==null)
+            str = "";
+        
+        if(str.length() > length)
+            return str.substring(0, length);
+        
+        StringBuilder sb = new StringBuilder();
+
+        for (int i=length-str.length(); i>0; i--) {
+            sb.append(padding);
+        }        
+
+        sb.append(str);
+        return sb.toString();        
+    }
+
+    /**
+     * Formateando números al estilo AFIP
+     * Al que diseñó este formato le deseamos que haya encontrado finalmente su vocación ;)
+     * @param number
+     * @param length
+     * @return
+     */
+    private String formatNumber(Double number, int length){
+        String result = decimalFormat.format(Math.abs(number))
+                        .replace(".", "").replace(",", "");
+        if(number<0)
+            return "-" + padLeft(result, length - 1, '0');
+        
+        return padLeft(result, length, '0');
     }
     
-    /*
+    /**
+     * Conversión de cadenas a un formato compatible con el aplicativo
+     * @param str
+     * @return
+     */
+    private String formatString(String str){
+        // Normalizo y reemplazo caracteres no ASCII por #
+        return Normalizer.normalize(str, Normalizer.Form.NFD).replaceAll("[^\\x00-\\x7F]", "#");
+    }    
+    
+    /**
      * Borra los montos acumulados 
      */
     private void borraImpuestos(){
@@ -410,7 +431,7 @@ public class ExportaCITI extends SvrProcess {
     	montoOperacionesExentas = 0.00;
     }
     
-    /*
+    /**
      * Devuelve verdadero si el id del impuesto consultado corresponde a uno configurado 
      * como crédito o débto fiscal
      */
@@ -418,7 +439,7 @@ public class ExportaCITI extends SvrProcess {
     	return reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA);
     }
     
-    /*
+    /**
      * Devuelve verdadero si el tipo de comprobante es "Otros comprobantes" u "Otros comprobantes - credito".
      */
     private Boolean esOtros(String tipo){
@@ -426,11 +447,10 @@ public class ExportaCITI extends SvrProcess {
     			|| tipo.equals(MInvoice.AFIPDOCTYPE_OtrosComprobantes);
     }
     
-    /*
+    /**
      * Acumula los importes de las líneas de cada factura.
-     * Devuelve:
-     *   true si la próxima línea del rs corresponde a la misma factura que la actual línea
-     *   false en caso contrario
+     * @return true si la próxima línea del rs corresponde a la misma factura que la actual línea
+     *          , false en caso contrario
      */
     private Boolean acumulaImportes(int id) throws SQLException{
     	
@@ -478,19 +498,12 @@ public class ExportaCITI extends SvrProcess {
 		
 		return ret;
     }
-    
-    private String formatString(String s){
-    	// Normalizo y reemplazo caracteres no ASCII por #
-    	return Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("[^\\x00-\\x7F]", "#");
-    }
-    
+        
     @SuppressWarnings("serial")
 	public class OperacionCondicionIVAFaltanteException extends Exception {
     	public OperacionCondicionIVAFaltanteException(String documentNo){
-    		// don't hate the player, hate the game ;)
-    		// renombrar WSFE si alguna vez se renombra wsfecode, que se usa para más que para facturar electrónicamente
     		super("No está configurada la Operación / condición de IVA / Alícuota de IVA / WSFE para " + documentNo);
     	}
     }
-    
+
 }
