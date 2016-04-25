@@ -79,6 +79,7 @@ public class ExportaCITI extends SvrProcess {
 			"	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y') \n" + 
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
+			"   and (itax.taxbaseamt != 0 or itax.taxamt != 0) \n" +
 			"group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 12 , 13, 14, 15 \n" +
 			"order by \n" + 
 			"	3 asc, inv.c_invoice_id, bp.name, inv.documentno, tax.citirg3685\n"
