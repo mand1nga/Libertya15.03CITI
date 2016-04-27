@@ -323,7 +323,9 @@ public class ExportaCITI extends SvrProcess {
 				lc.append(monedaCodigoWSFE);
 				lc.append("0001000000");  // Tipo de cambio fijo, ya que no hay multimoneda
 				lc.append(q_alic);
-				if ((cmpLetra.equals("A") || esOtros(cmpTipo)) && montoConsumidorFinal == 0.0)
+				// Tipo de operación
+				if ((cmpLetra.equals("A") || cmpLetra.equals("B") || cmpLetra.equals("M") || esOtros(cmpTipo)) 
+				        && montoConsumidorFinal == 0.0)
 					lc.append("E");
 				else
 					lc.append("0");
