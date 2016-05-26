@@ -190,7 +190,9 @@ public class ExportaCITI extends SvrProcess {
 			} catch (IOException e1) {
 				result = "Error al generar los archivos CITI RG3685 " +lineSeparator + e.getLocalizedMessage();
 				e1.printStackTrace();
-			}	
+			}
+ 			
+ 			throw e; 			
  		}	
  		return result;
 	}				
