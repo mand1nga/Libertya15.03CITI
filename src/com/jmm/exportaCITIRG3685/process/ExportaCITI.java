@@ -75,7 +75,7 @@ public class ExportaCITI extends SvrProcess {
 			"join c_tax tax on itax.c_tax_id = tax.c_tax_id \n" + 
 			"join c_letra_comprobante ltr on inv.c_letra_comprobante_id = ltr.c_letra_comprobante_id \n" + 
 			"where \n" + 
-			"	inv.dateacct between ? and ? \n" + 
+			"	inv.dateacct::date between ? and ? \n" + 
 			"	and (dt.docsubtypeinv in ('SF') or dt.isfiscaldocument = 'Y') \n" + 
 			"	and inv.docstatus = 'CO' \n" + 
 			"	and inv.issotrx = ? \n" + 
