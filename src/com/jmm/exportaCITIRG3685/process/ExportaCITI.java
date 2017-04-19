@@ -58,7 +58,11 @@ public class ExportaCITI extends SvrProcess {
 			"	, inv.afipdoctype\n" + 
 			"	, inv.documentno\n" + 
 			"	, inv.grandtotal\n" +
-			"	, coalesce(bp.taxidtype, '99') \n" + 
+			"	, case \n" + 
+			"		when bp.taxidtype is not null then bp.taxidtype \n" + 
+			"		when coalesce(inv.nroidentificcliente,'') = '' then '99' \n" +
+			"		else '96' \n" +
+			"	end as taxidtype \n" +
 			"	, case \n" +
 			"		when bp.taxid = '' or bp.taxid is null then coalesce(inv.nroidentificcliente,'') \n" +
 			"		else bp.taxid \n" +
