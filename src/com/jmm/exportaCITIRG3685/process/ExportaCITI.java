@@ -272,14 +272,7 @@ public class ExportaCITI extends SvrProcess {
  					la.append(bpIdentificadorFiscal);
  				}
 
- 				boolean write = false;
- 				
- 				if (esCreditoDebitoFiscal(citiReference))
- 					write = true;
- 				else if (montoConsumidorFinal == 0.0 && citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
- 					write = true;
- 				
- 				if(write){
+ 				if(esCreditoDebitoFiscal(citiReference)){
  					if(operacionCondicionIVA==null)
  						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
  					
@@ -316,11 +309,9 @@ public class ExportaCITI extends SvrProcess {
 				lc.append(bpIdentificadorFiscal);
 				lc.append(bpNombre);
 				lc.append(cmpTotal);
-				// TODO: no se discriminan conceptos no gravados de exentos en esta versión.
 				lc.append("000000000000000");
-				if (cmpLetra.equals("C") || cmpLetra.equals("B") ||
-						((cmpLetra.equals("A") || esOtros(cmpTipo)) && montoConsumidorFinal == 0.0))
-					lc.append("000000000000000");
+				if (cmpLetra.equals("B") || cmpLetra.equals("C"))
+					lc.append(formatNumber(0d, 15));
 				else
 					lc.append(formatNumber(montoOperacionesExentas, 15));
 				lc.append(formatNumber(montoIVA, 15));
@@ -338,7 +329,7 @@ public class ExportaCITI extends SvrProcess {
 				        && montoConsumidorFinal == 0.0)
 					lc.append("E");
 				else
-					lc.append("0");
+					lc.append(" ");
 				if (!isSOTrx)
 					lc.append(formatNumber(montoConsumidorFinal, 15));
 				lc.append(formatNumber(montoImpOtros, 15));
@@ -507,7 +498,7 @@ public class ExportaCITI extends SvrProcess {
 			montoImpOtros += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
-			montoOperacionesExentas += taxAmount;
+			montoOperacionesExentas += taxBaseAmount;
 		
 		return ret;
     }
