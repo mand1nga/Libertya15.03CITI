@@ -41,8 +41,8 @@ public class ExportaCITI extends SvrProcess {
     private ResultSet rs = null;
 	private int invoiceId;
 	boolean isSOTrx;
-	private Double montoConsumidorFinal, montoIVA, montoIIBB
-			, montoImpNacionales, montoImpMunicipales, montoImpOtros
+	private Double montoIVA, montoPercepcionesIVA, montoPercepcionesIIBB
+			, montoPercepcionesImpNacionales, montoPercepcionesImpMunicipales, montoImpOtros
 			, montoOperacionesExentas; 
 
 	private static final DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");	
@@ -90,7 +90,7 @@ public class ExportaCITI extends SvrProcess {
 			"   and inv.isactive = 'Y' \n" +
 			"group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 12 , 13, 14, 15 \n" +
 			"order by \n" + 
-			"	3 asc, inv.c_invoice_id, bp.name, inv.documentno, tax.citirg3685\n"
+			"	3 asc, inv.c_invoice_id, bp.name, inv.documentno, sum(itax.taxamt) desc\n"
 			;
 
 	private static final int IX_INVOICE_ID 				= 1;
@@ -272,7 +272,15 @@ public class ExportaCITI extends SvrProcess {
  					la.append(bpIdentificadorFiscal);
  				}
 
- 				if(esCreditoDebitoFiscal(citiReference)){
+ 				boolean write = false;
+ 				 				
+ 				if (esCreditoDebitoFiscal(citiReference))
+ 					write = true;
+ 				// resultset ordered by tax amount
+ 				else if (q_alic == 0 && citiReference.equals(LP_C_Tax.CITIRG3685_ImportesExentos))
+ 					write = true;
+ 				 				
+ 				if(write){
  					if(operacionCondicionIVA==null)
  						throw new OperacionCondicionIVAFaltanteException(cmpNumero);
  					
@@ -309,29 +317,34 @@ public class ExportaCITI extends SvrProcess {
 				lc.append(bpIdentificadorFiscal);
 				lc.append(bpNombre);
 				lc.append(cmpTotal);
-				lc.append("000000000000000");
-				if (cmpLetra.equals("B") || cmpLetra.equals("C"))
+				if(cmpLetra.equals("B") || cmpLetra.equals("C") || montoIVA == 0){
 					lc.append(formatNumber(0d, 15));
-				else
+					lc.append(formatNumber(0d, 15));
+				}else {
 					lc.append(formatNumber(montoOperacionesExentas, 15));
-				lc.append(formatNumber(montoIVA, 15));
-				lc.append(formatNumber(montoImpNacionales, 15));
-				lc.append(formatNumber(montoIIBB, 15));
-				lc.append(formatNumber(montoImpMunicipales, 15));
+					lc.append(formatNumber(0d, 15));					
+				}
+				lc.append(formatNumber(montoPercepcionesIVA, 15));
+				lc.append(formatNumber(montoPercepcionesImpNacionales, 15));
+				lc.append(formatNumber(montoPercepcionesIIBB, 15));
+				lc.append(formatNumber(montoPercepcionesImpMunicipales, 15));
 				// TODO: dar soporte a impuestos internos
 				lc.append("000000000000000");
 				// TODO: dar soporte multimoneda
 				lc.append(monedaCodigoWSFE);
 				lc.append("0001000000");  // Tipo de cambio fijo, ya que no hay multimoneda
-				lc.append(q_alic);
+				if(!isSOTrx && (cmpLetra.equals("B") || cmpLetra.equals("C")))
+					lc.append(0);
+				else
+					lc.append(q_alic == 0 ? 1 : q_alic);
 				// Tipo de operación
-				if ((cmpLetra.equals("A") || cmpLetra.equals("B") || cmpLetra.equals("M") || esOtros(cmpTipo)) 
-				        && montoConsumidorFinal == 0.0)
+				if ((cmpLetra.equals("A") || cmpLetra.equals("B") || cmpLetra.equals("C") || cmpLetra.equals("M") || esOtros(cmpTipo)) 
+				        && montoIVA == 0.0)
 					lc.append("E");
 				else
 					lc.append(" ");
 				if (!isSOTrx)
-					lc.append(formatNumber(montoConsumidorFinal, 15));
+					lc.append(formatNumber(montoIVA, 15));
 				lc.append(formatNumber(montoImpOtros, 15));
 				if (!isSOTrx)
 					// TODO: dar soporte para comisiones de corredores
@@ -426,11 +439,11 @@ public class ExportaCITI extends SvrProcess {
      * Borra los montos acumulados 
      */
     private void borraImpuestos(){
-    	montoConsumidorFinal = 0.0;
     	montoIVA = 0.0;
-    	montoIIBB = 0.0;
-    	montoImpNacionales = 0.0;
-    	montoImpMunicipales = 0.0;
+    	montoPercepcionesIVA = 0.0;
+    	montoPercepcionesIIBB = 0.0;
+    	montoPercepcionesImpNacionales = 0.0;
+    	montoPercepcionesImpMunicipales = 0.0;
     	montoImpOtros = 0.0;
     	montoOperacionesExentas = 0.00;
     }
@@ -480,19 +493,19 @@ public class ExportaCITI extends SvrProcess {
 		
 		String reference = rs.getString(IX_TAX_CITI_REF).trim().toUpperCase();
 		if (reference.equals(LP_C_Tax.CITIRG3685_CréditoODébitoFiscalIVA))
-			montoConsumidorFinal += taxAmount;
-		
-		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIVA))
 			montoIVA += taxAmount;
 		
+		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIVA))
+			montoPercepcionesIVA += taxAmount;
+		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeIngresosBrutos))
-			montoIIBB += taxAmount;
+			montoPercepcionesIIBB += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosNacionales))
-			montoImpNacionales += taxAmount;
+			montoPercepcionesImpNacionales += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_PercepcionesDeImpuestosMunicipales))
-			montoImpMunicipales += taxAmount;
+			montoPercepcionesImpMunicipales += taxAmount;
 		
 		else if (reference.equals(LP_C_Tax.CITIRG3685_OtrosImpuestos))
 			montoImpOtros += taxAmount;
