@@ -243,7 +243,7 @@ public class ExportaCITI extends SvrProcess {
 			cmpFecha = formatDate(rs.getDate(IX_INVOICE_DATE_INVOICED));
 			cmpTipo = padLeft(rs.getString(IX_INVOICE_AFIP_DOCTYPE), 3, '0');
 			cmpPuntoVenta = padLeft(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(1, 5), 5, '0');
-			cmpNumero = padLeft(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6, 13), 20, '0');
+			cmpNumero = padLeft(rs.getString(IX_INVOICE_DOCUMENT_NO).substring(6), 20, '0');
 			bpCodigoIdentificadorFiscal = rs.getString(IX_BP_TAX_ID_TYPE);
 			bpIdentificadorFiscal = padLeft(rs.getString(IX_BP_TAX_ID).replace("-", ""), 20, '0');
 			cmpTotal = formatNumber(rs.getDouble(IX_INVOICE_GRANDTOTAL), 15);
